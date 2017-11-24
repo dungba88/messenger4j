@@ -8,6 +8,8 @@ import lombok.NonNull;
  */
 public final class MessengerIOException extends Exception {
 
+    private static final long serialVersionUID = 5743883961127235375L;
+
     public MessengerIOException(@NonNull Throwable cause) {
         super(cause);
     }

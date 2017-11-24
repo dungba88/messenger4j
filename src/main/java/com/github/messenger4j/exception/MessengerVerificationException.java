@@ -8,6 +8,8 @@ import lombok.NonNull;
  */
 public final class MessengerVerificationException extends Exception {
 
+    private static final long serialVersionUID = -4610010588861146400L;
+
     public MessengerVerificationException(@NonNull String message) {
         super(message);
     }

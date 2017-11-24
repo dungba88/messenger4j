@@ -13,6 +13,7 @@ import lombok.ToString;
 @EqualsAndHashCode(callSuper = true)
 public final class MessengerApiException extends Exception {
 
+    private static final long serialVersionUID = 8435355487994244590L;
     private final Optional<String> type;
     private final Optional<Integer> code;
     private final Optional<String> fbTraceId;
