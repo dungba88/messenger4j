@@ -18,6 +18,7 @@ public final class Lists {
         return Collections.unmodifiableList(new ArrayList<>(list));
     }
 
+    @SafeVarargs
     public static <T> List<T> immutableList(T... elements) {
         return immutableList(Arrays.asList(elements));
     }

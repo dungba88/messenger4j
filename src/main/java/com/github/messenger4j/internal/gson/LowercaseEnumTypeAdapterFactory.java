@@ -68,7 +68,7 @@ final class LowercaseEnumTypeAdapterFactory implements TypeAdapterFactory {
      */
     private <T> String transform(T enumConstant, TypeAdapter<T> delegateAdapter) {
         try {
-            final String enumValue = ((Enum) enumConstant).name();
+            final String enumValue = ((Enum<?>) enumConstant).name();
             final boolean hasSerializedNameAnnotation = enumConstant.getClass().getField(enumValue)
                     .isAnnotationPresent(SerializedName.class);
             return hasSerializedNameAnnotation ? delegateAdapter.toJsonTree(enumConstant).getAsString() :

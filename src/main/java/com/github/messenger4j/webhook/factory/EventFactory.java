@@ -20,7 +20,7 @@ import java.util.List;
  */
 public final class EventFactory {
 
-    private static final List<BaseEventFactory> FACTORIES = Lists.immutableList(
+    private static final List<BaseEventFactory<?>> FACTORIES = Lists.immutableList(
             new TextMessageEventFactory(),
             new AttachmentMessageEventFactory(),
             new QuickReplyMessageEventFactory(),
@@ -37,7 +37,7 @@ public final class EventFactory {
     }
 
     public static Event createEvent(JsonObject messagingEvent) {
-        for (BaseEventFactory factory : FACTORIES) {
+        for (BaseEventFactory<?> factory : FACTORIES) {
             if (factory.isResponsible(messagingEvent)) {
                 return new Event(factory.createEventFromJson(messagingEvent));
             }

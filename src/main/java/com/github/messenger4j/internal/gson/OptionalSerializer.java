@@ -10,10 +10,10 @@ import java.util.Optional;
  * @author Max Grabenhorst
  * @since 1.0.0
  */
-final class OptionalSerializer implements JsonSerializer<Optional> {
+final class OptionalSerializer implements JsonSerializer<Optional<?>> {
 
     @Override
-    public JsonElement serialize(Optional src, Type typeOfSrc, JsonSerializationContext context) {
+    public JsonElement serialize(Optional<?> src, Type typeOfSrc, JsonSerializationContext context) {
         if (!src.isPresent()) {
             return null;
         }
