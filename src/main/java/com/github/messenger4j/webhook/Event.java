@@ -1,5 +1,7 @@
 package com.github.messenger4j.webhook;
 
+import java.time.Instant;
+
 import com.github.messenger4j.webhook.event.AccountLinkingEvent;
 import com.github.messenger4j.webhook.event.AttachmentMessageEvent;
 import com.github.messenger4j.webhook.event.BaseEvent;
@@ -11,7 +13,7 @@ import com.github.messenger4j.webhook.event.PostbackEvent;
 import com.github.messenger4j.webhook.event.QuickReplyMessageEvent;
 import com.github.messenger4j.webhook.event.ReferralEvent;
 import com.github.messenger4j.webhook.event.TextMessageEvent;
-import java.time.Instant;
+
 import lombok.EqualsAndHashCode;
 import lombok.NonNull;
 import lombok.ToString;
@@ -25,9 +27,13 @@ import lombok.ToString;
 public final class Event {
 
     private final BaseEvent baseEvent;
-
+    
     public Event(@NonNull BaseEvent baseEvent) {
         this.baseEvent = baseEvent;
+    }
+    
+    public BaseEvent baseEvent() {
+        return baseEvent;
     }
 
     public String senderId() {

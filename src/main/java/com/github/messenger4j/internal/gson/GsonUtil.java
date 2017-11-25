@@ -133,7 +133,11 @@ public final class GsonUtil {
         PROP_SOURCE("source"),
         PROP_AD_ID("ad_id"),
         PROP_IS_PAYMENT_ENABLED("is_payment_enabled"),
-        PROP_LAST_AD_REFERRAL("last_ad_referral");
+        PROP_LAST_AD_REFERRAL("last_ad_referral"),
+        PROP_NLP("nlp"),
+        PROP_ENTITIES("entities"),
+        PROP_ENTITY_VALUE("value"),
+        PROP_ENTITY_CONFIDENCE("confidence");
 
         private final String value;
 

@@ -1,15 +1,33 @@
 package com.github.messenger4j;
 
-import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_ENTRY;
-import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_MESSAGING;
-import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_OBJECT;
+import static com.github.messenger4j.internal.gson.GsonUtil.getPropertyAsDouble;
 import static com.github.messenger4j.internal.gson.GsonUtil.getPropertyAsJsonArray;
+import static com.github.messenger4j.internal.gson.GsonUtil.getPropertyAsJsonObject;
 import static com.github.messenger4j.internal.gson.GsonUtil.getPropertyAsString;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_ENTITIES;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_ENTITY_CONFIDENCE;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_ENTITY_VALUE;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_ENTRY;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_MESSAGE;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_MESSAGING;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_NLP;
+import static com.github.messenger4j.internal.gson.GsonUtil.Constants.PROP_OBJECT;
 import static com.github.messenger4j.spi.MessengerHttpClient.HttpMethod.DELETE;
 import static com.github.messenger4j.spi.MessengerHttpClient.HttpMethod.GET;
 import static com.github.messenger4j.spi.MessengerHttpClient.HttpMethod.POST;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.github.messenger4j.exception.MessengerApiException;
 import com.github.messenger4j.exception.MessengerApiExceptionFactory;
@@ -21,6 +39,7 @@ import com.github.messenger4j.messengerprofile.MessengerSettingProperty;
 import com.github.messenger4j.messengerprofile.MessengerSettings;
 import com.github.messenger4j.messengerprofile.SetupResponse;
 import com.github.messenger4j.messengerprofile.SetupResponseFactory;
+import com.github.messenger4j.nlp.NlpEntity;
 import com.github.messenger4j.send.MessageResponse;
 import com.github.messenger4j.send.MessageResponseFactory;
 import com.github.messenger4j.send.Payload;
@@ -37,13 +56,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
+
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -79,8 +92,8 @@ public final class Messenger {
 
     private static final String FB_GRAPH_API_URL_MESSAGES = "https://graph.facebook.com/v2.8/me/messages?access_token=%s";
     private static final String FB_GRAPH_API_URL_MESSENGER_PROFILE = "https://graph.facebook.com/v2.8/me/messenger_profile?access_token=%s";
-    private static final String FB_GRAPH_API_URL_USER = "https://graph.facebook.com/v2.8/%s?fields=first_name," +
-            "last_name,profile_pic,locale,timezone,gender,is_payment_enabled,last_ad_referral&access_token=%s";
+    private static final String FB_GRAPH_API_URL_USER = "https://graph.facebook.com/v2.8/%s?fields=first_name,"
+            + "last_name,profile_pic,locale,timezone,gender,is_payment_enabled,last_ad_referral&access_token=%s";
 
     private final String pageAccessToken;
     private final String appSecret;
@@ -92,17 +105,19 @@ public final class Messenger {
     private final Gson gson;
     private final JsonParser jsonParser;
 
-    public static Messenger create(@NonNull String pageAccessToken, @NonNull String appSecret, @NonNull String verifyToken) {
+    public static Messenger create(@NonNull String pageAccessToken, @NonNull String appSecret,
+            @NonNull String verifyToken) {
         return create(pageAccessToken, appSecret, verifyToken, empty());
     }
 
     public static Messenger create(@NonNull String pageAccessToken, @NonNull String appSecret,
-                                   @NonNull String verifyToken, @NonNull Optional<MessengerHttpClient> customHttpClient) {
+            @NonNull String verifyToken, @NonNull Optional<MessengerHttpClient> customHttpClient) {
 
         return new Messenger(pageAccessToken, appSecret, verifyToken, customHttpClient);
     }
 
-    private Messenger(String pageAccessToken, String appSecret, String verifyToken, Optional<MessengerHttpClient> httpClient) {
+    private Messenger(String pageAccessToken, String appSecret, String verifyToken,
+            Optional<MessengerHttpClient> httpClient) {
         this.pageAccessToken = pageAccessToken;
         this.appSecret = appSecret;
         this.verifyToken = verifyToken;
@@ -114,20 +129,18 @@ public final class Messenger {
         this.jsonParser = new JsonParser();
     }
 
-    public MessageResponse send(@NonNull Payload payload)
-            throws MessengerApiException, MessengerIOException {
+    public MessageResponse send(@NonNull Payload payload) throws MessengerApiException, MessengerIOException {
 
         return doRequest(POST, messagesRequestUrl, of(payload), MessageResponseFactory::create);
     }
 
     public void onReceiveEvents(@NonNull String requestPayload, @NonNull Optional<String> signature,
-                                @NonNull Consumer<Event> eventHandler)
-            throws MessengerVerificationException {
+            @NonNull Consumer<Event> eventHandler) throws MessengerVerificationException {
 
         if (signature.isPresent()) {
             if (!SignatureUtil.isSignatureValid(requestPayload, signature.get(), this.appSecret)) {
-                throw new MessengerVerificationException("Signature verification failed. " +
-                        "Provided signature does not match calculated signature.");
+                throw new MessengerVerificationException(
+                        "Signature verification failed. " + "Provided signature does not match calculated signature.");
             }
         } else {
             log.warn("No signature provided, hence the signature verification is skipped. THIS IS NOT RECOMMENDED");
@@ -137,8 +150,8 @@ public final class Messenger {
 
         final Optional<String> objectType = getPropertyAsString(payloadJsonObject, PROP_OBJECT);
         if (!objectType.isPresent() || !objectType.get().equalsIgnoreCase(OBJECT_TYPE_PAGE)) {
-            throw new IllegalArgumentException("'object' property must be 'page'. " +
-                    "Make sure this is a page subscription");
+            throw new IllegalArgumentException(
+                    "'object' property must be 'page'. " + "Make sure this is a page subscription");
         }
 
         final JsonArray entries = getPropertyAsJsonArray(payloadJsonObject, PROP_ENTRY)
@@ -148,9 +161,39 @@ public final class Messenger {
                     .orElseThrow(IllegalArgumentException::new);
             for (JsonElement messagingEvent : messagingEvents) {
                 final Event event = EventFactory.createEvent(messagingEvent.getAsJsonObject());
+                event.baseEvent().extendedProperties().put("entities", extractNLP((JsonObject) messagingEvent));
                 eventHandler.accept(event);
             }
         }
+    }
+
+    private Object extractNLP(JsonObject messagingEvent) {
+        final Optional<JsonObject> message = getPropertyAsJsonObject(messagingEvent, PROP_MESSAGE);
+        if (!message.isPresent())
+            return null;
+        final Optional<JsonObject> nlp = getPropertyAsJsonObject(message.get(), PROP_NLP);
+        if (!nlp.isPresent())
+            return null;
+        Optional<JsonObject> entities = getPropertyAsJsonObject(nlp.get(), PROP_ENTITIES);
+        if (!entities.isPresent())
+            return null;
+        Map<String, List<NlpEntity>> entitiesMap = new HashMap<>();
+        for (Entry<String, JsonElement> entity : entities.get().entrySet()) {
+            String name = entity.getKey();
+            entitiesMap.put(name, new ArrayList<>());
+
+            JsonArray subEntities = (JsonArray) entity.getValue();
+            for (JsonElement subEntity : subEntities) {
+                String value = getPropertyAsString((JsonObject) subEntity, PROP_ENTITY_VALUE)
+                        .orElseThrow(IllegalArgumentException::new);
+                double confidence = getPropertyAsDouble((JsonObject) subEntity, PROP_ENTITY_CONFIDENCE)
+                        .orElseThrow(IllegalArgumentException::new);
+
+                NlpEntity nlpEntity = new NlpEntity(name, value, confidence);
+                entitiesMap.get(name).add(nlpEntity);
+            }
+        }
+        return entitiesMap;
     }
 
     public void verifyWebhook(@NonNull String mode, @NonNull String verifyToken) throws MessengerVerificationException {
@@ -158,8 +201,8 @@ public final class Messenger {
             throw new MessengerVerificationException("Webhook verification failed. Mode '" + mode + "' is invalid.");
         }
         if (!verifyToken.equals(this.verifyToken)) {
-            throw new MessengerVerificationException("Webhook verification failed. Verification token '" +
-                    verifyToken + "' is invalid.");
+            throw new MessengerVerificationException(
+                    "Webhook verification failed. Verification token '" + verifyToken + "' is invalid.");
         }
     }
 
@@ -168,26 +211,25 @@ public final class Messenger {
         return doRequest(GET, requestUrl, empty(), UserProfileFactory::create);
     }
 
-
     public SetupResponse updateSettings(@NonNull MessengerSettings messengerSettings)
             throws MessengerApiException, MessengerIOException {
 
         return doRequest(POST, messengerProfileRequestUrl, of(messengerSettings), SetupResponseFactory::create);
     }
 
-    public SetupResponse deleteSettings(@NonNull MessengerSettingProperty property, @NonNull MessengerSettingProperty... properties)
-            throws MessengerApiException, MessengerIOException {
+    public SetupResponse deleteSettings(@NonNull MessengerSettingProperty property,
+            @NonNull MessengerSettingProperty... properties) throws MessengerApiException, MessengerIOException {
 
         final List<MessengerSettingProperty> messengerSettingPropertyList = new ArrayList<>(properties.length + 1);
         messengerSettingPropertyList.add(property);
         messengerSettingPropertyList.addAll(Arrays.asList(properties));
-        final DeleteMessengerSettingsPayload payload = DeleteMessengerSettingsPayload.create(messengerSettingPropertyList);
+        final DeleteMessengerSettingsPayload payload = DeleteMessengerSettingsPayload
+                .create(messengerSettingPropertyList);
         return doRequest(DELETE, messengerProfileRequestUrl, of(payload), SetupResponseFactory::create);
     }
 
     private <R> R doRequest(HttpMethod httpMethod, String requestUrl, Optional<Object> payload,
-                            Function<JsonObject, R> responseTransformer)
-            throws MessengerApiException, MessengerIOException {
+            Function<JsonObject, R> responseTransformer) throws MessengerApiException, MessengerIOException {
 
         try {
             final Optional<String> jsonBody = payload.map(this.gson::toJson);
@@ -195,8 +237,8 @@ public final class Messenger {
             final JsonObject responseJsonObject = this.jsonParser.parse(httpResponse.body()).getAsJsonObject();
 
             if (responseJsonObject.size() == 0) {
-                throw new MessengerApiException("The response JSON does not contain any key/value pair",
-                        empty(), empty(), empty());
+                throw new MessengerApiException("The response JSON does not contain any key/value pair", empty(),
+                        empty(), empty());
             }
 
             if (httpResponse.statusCode() >= 200 && httpResponse.statusCode() < 300) {
