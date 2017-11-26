@@ -1,9 +1,13 @@
 package com.github.messenger4j.nlp;
 
+import java.io.Serializable;
+
 import lombok.Getter;
 
 @Getter
-public class NlpEntity {
+public class NlpEntity implements Serializable {
+
+    private static final long serialVersionUID = 7686163407525935673L;
 
     private final String name;
     
